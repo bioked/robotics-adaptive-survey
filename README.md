@@ -4,7 +4,7 @@ Flask-based HRI **adaptive survey** for participant intake, with adaptive branch
 Responses are logged to CSV, and participants are assigned to one of three groups: 'tutorial', 'standard', or 'advanced'.
 
 ## Features
-- /survey -> HTML form (name, age, experience level operating a robotic arm, preferred control method, and comfort level)
+- /survey -> HTML form (name, age, experience level, preferred control method, and comfort level)
 - Adaptive branching assigns 'assigned_group'
 - /filled -> Thank-you page that shows the participant's assigned group
 - All responses are saved to survey_responses.csv
