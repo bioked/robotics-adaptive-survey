@@ -9,7 +9,7 @@ Logs responses to CSV, and assigns each participant to one of the following grou
 - Persists responses to 'survey_responses.csv'
 - /filled -> a 'form submitted / thank you for your response' page shows the assigned group
 
-## Run locally
+## Run
 ```bash
 python -m venv venv
 source venv/bin/activate
