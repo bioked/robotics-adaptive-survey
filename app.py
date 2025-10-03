@@ -93,6 +93,36 @@ def api_responses():
 		rows = list(csv.DictReader(f))
 	return jsonify(rows)
 
+@app.route("/api/submit", methods=["POST"])
+def api_submit():
+	init_csv()
+	data = request.get_json(force=True) or {}
+	name = (data.get("name") or "").strip()
+	age = (data.get("age") or "").strip()
+	q_arm_experience = data,get("q_arm_experience") or ""
+	q_control = data.get("q_control") or ""
+	q_comfort = data.get("q_comfort") or ""
+
+	if not name or not age.isdigit():
+		return jsonify({"error": "Invalid input"}), 400
+
+	group = assign_group(q_arm_experience, q_comfort)
+
+	row = {
+		"timestamp": datetime.utcnow().isoformat(timespec="seconds"),
+		"name": name,
+		"age": age,
+		"q_arm_experience": q_arm_experience,
+		"q_control": q_control,
+		"q_comfort": q_comfort,
+		"assigned_group": group,
+	}
+	with CSV_PATH.open("a", newline="", encoding="utf-8") as f:
+		writer = csv,DictWriter(f, fieldnames=FIELDNAMES)
+		writer.writerow(row)
+
+	return jsonify({"status": "ok", "assigned_group": group})
+
 @app.route("/responses.csv")
 def responses_csv():
 	"""So that researchers can download the survey responses as CSV."""
