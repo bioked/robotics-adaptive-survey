@@ -1,4 +1,4 @@
-# Robotics-Adaptive-Survey
+# Robotics Adaptive Survey
 
 Flask-based HRI **adaptive survey** for participant intake, and to store a comfortability self-report.
 Logs responses to CSV, and assigns each participant to one of the following groups: 'tutorial', 'standard' or 'advanced') based on the participant's experience and comfort level.
