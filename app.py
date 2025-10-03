@@ -20,10 +20,10 @@ def init_csv():
 def assign_group(exp_level: str, comfort: str) -> str:
 	"""
 	Basic adaptive branching:
-	- never used robotic arm OR very_uncomfortable  -> tutorial
-	- demo_only AND neutral/comfortable             -> standard
-	- often AND (comfortable/very)                  -> advanced
-	- fallback                                      -> standard
+	- never used a robotic arm OR very_uncomfortable	-> tutorial
+	- demo_only AND neutral/comfortable			-> standard
+	- often AND comfortable/very_comfortable		-> advanced
+	- fallback						-> standard
 	"""
 	if exp_level == "never" or comfort == "very_uncomfortable":
 		return "tutorial"
