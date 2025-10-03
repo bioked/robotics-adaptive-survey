@@ -1,13 +1,15 @@
 # Robotics Adaptive Survey
 
-Flask-based HRI **adaptive survey** for participant intake, and to store a comfortability self-report.
-Logs responses to CSV, and assigns each participant to one of the following groups: 'tutorial', 'standard' or 'advanced') based on the participant's experience and comfort level.
+Flask-based HRI **adaptive survey** for participant intake, with adaptive branching based on the respondent's self-report (past experience working with robots, and comfort level).
+Responses are logged to CSV, and participants are assigned to one of three groups: 'tutorial', 'standard', or 'advanced'.
 
 ## Features
 - /survey -> HTML form (name, age, experience level operating a robotic arm, preferred control method, and comfort level)
 - Adaptive branching assigns 'assigned_group'
-- Persists responses to 'survey_responses.csv'
-- /filled -> a 'form submitted / thank you for your response' page shows the assigned group
+- /filled -> Thank-you page that shows the participant's assigned group
+- All responses are saved to survey_responses.csv
+- /responses -> Researcher view: table containing all responses that've been collected
+- /responses.csv -> Download all responses as CSV (for analysis or dashboards)
 
 ## Run
 ```bash
