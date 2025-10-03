@@ -23,16 +23,16 @@
 		{% if rows %}
 			<table>
 				<tr>
-					{% for field in rows[0].keys() %}
-						<th>{{ field }}</th>
+					{% for col in fieldnames %}
+						<th>{{ col }}</th>
 					{% endfor %}
 				</tr>
 				{% for row in rows %}
 					<tr>
-						{% for field in row.values() %}
-							<td>{{ field }}</td>
+						{% for col in fieldnames %}
+							<td>{{ row.get(col, "") }}</td>
 						{% endfor %}
-					</tr>
+					<tr>
 				{% endfor %}
 			</table>
 		{% else %}

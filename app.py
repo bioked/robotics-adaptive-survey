@@ -81,12 +81,10 @@ def filled():
 @app.route("/responses")
 def responses():
 	init_csv()
-	rows = []
 	with CSV_PATH.open("r", newline="", encoding="utf-8") as f:
-		reader = csv.DictReader(f)
-		rows = list(reader)
+		rows = list(csv.DictReader(f))
 
-	return render_template("responses.html", rows=rows)
+	return render_template("responses.html", rows=rows, fieldnames=FIELDNAMES)
 
 @app.route("/api/responses")
 def api_responses():
