@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file
 import csv
 from pathlib import Path
 from datetime import datetime
@@ -78,5 +78,29 @@ def home():
 def filled():
 	return render_template("filled.html", group=request.args.get("group", ""))
                         
+@app.route("/responses")
+def responses():
+	init_csv()
+	rows = []
+	with CSV_PATH.open("r", newline="", encoding="utf-8") as f:
+		reader = csv.DictReader(f)
+		rows = list(reader)
+
+	return render_template("responses.html", rows=rows)
+
+@app.route("/api/responses")
+def api_responses():
+	init_csv()
+	with CSV_PATH.open("r", newline="", encoding="utf-8") as f:
+		rows = list(csv.DictReader(f))
+	return jsonify(rows)
+
+@app.route("/responses.csv")
+def responses_csv():
+	"""So that researchers can download the survey responses as CSV."""
+	init_csv()
+	# Download all responses as CSV
+	return send_file(CSV_PATH, mimetype="text/csv", as_attachment=True, download_name="survey_responses.csv")
+
 if __name__ == "__main__":
 	app.run(debug=True)
