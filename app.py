@@ -1,7 +1,33 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file
+from functools import wraps
+from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, Response
 import csv
 from pathlib import Path
 from datetime import datetime
+
+# --- Basic Auth ---
+USERNAME = "studyowner"
+PASSWORD = "password" # change this to something secure before deploying
+
+def check_auth(u, p):
+	return u == USERNAME and p == PASSWORD
+
+def authenticate():
+	"""Send 401 so browser asks for login credentials."""
+	return Response(
+		"Authentication required",
+		401,
+		{"WWW-Authenticate": 'Basic realm="Login Required"'}
+	)
+
+def requires_auth(fn):
+	"""Decorator that adds basic password protection to a route."""
+	@wraps(fn)
+	def wrapper(*args, **kwargs):
+		auth = request.authorization
+		if not auth or not check_auth(auth.username, auth.password):
+			return authenticate()
+		return fn(*args, **kwargs)
+	return wrapper
         
 app = Flask(__name__)
                         
@@ -11,7 +37,7 @@ FIELDNAMES = ["timestamp", "name", "age",
 		"assigned_group"]
         
 def init_csv():
-	"""Create CSV with header if there isn't one already."""   
+	"""Create CSV incl. header if there isn't one already."""   
 	if not CSV_PATH.exists():
 		with CSV_PATH.open("w", newline="", encoding="utf-8") as f:   
 			writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
@@ -79,12 +105,20 @@ def filled():
 	return render_template("filled.html", group=request.args.get("group", ""))
                         
 @app.route("/responses")
+@requires_auth
 def responses():
 	init_csv()
 	with CSV_PATH.open("r", newline="", encoding="utf-8") as f:
 		rows = list(csv.DictReader(f))
 
 	return render_template("responses.html", rows=rows, fieldnames=FIELDNAMES)
+
+@app.route("/responses.csv")
+def responses_csv():
+        """Ability to download survey responses as CSV."""
+        init_csv()
+        # Download all responses as CSV
+        return send_file(CSV_PATH, mimetype="text/csv", as_attachment=True, download_name="survey_responses.csv")
 
 @app.route("/api/responses")
 def api_responses():
@@ -122,13 +156,6 @@ def api_submit():
 		writer.writerow(row)
 
 	return jsonify({"status": "ok", "assigned_group": group})
-
-@app.route("/responses.csv")
-def responses_csv():
-	"""So that researchers can download the survey responses as CSV."""
-	init_csv()
-	# Download all responses as CSV
-	return send_file(CSV_PATH, mimetype="text/csv", as_attachment=True, download_name="survey_responses.csv")
 
 if __name__ == "__main__":
 	app.run(debug=True)
