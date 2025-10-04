@@ -1,0 +1,3 @@
+# Prevent templates/static from ruling stats
+templates/* linguist-vendored
+static/* linguist-vendored
