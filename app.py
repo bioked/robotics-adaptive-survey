@@ -2,7 +2,7 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, Response
 import csv
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 # --- Basic Auth ---
 USERNAME = "studyowner"
@@ -79,7 +79,7 @@ def survey():
 		group = assign_group(q_arm_experience, q_comfort)
                 
 		row = {
-			"timestamp": datetime.utcnow().isoformat(timespec="seconds"),
+			"timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
 			"name": name,
 			"age": age,
 			"q_arm_experience": q_arm_experience,
@@ -133,7 +133,7 @@ def api_submit():
 	data = request.get_json(force=True) or {}
 	name = (data.get("name") or "").strip()
 	age = (data.get("age") or "").strip()
-	q_arm_experience = data,get("q_arm_experience") or ""
+	q_arm_experience = data.get("q_arm_experience") or ""
 	q_control = data.get("q_control") or ""
 	q_comfort = data.get("q_comfort") or ""
 
@@ -143,7 +143,7 @@ def api_submit():
 	group = assign_group(q_arm_experience, q_comfort)
 
 	row = {
-		"timestamp": datetime.utcnow().isoformat(timespec="seconds"),
+		"timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
 		"name": name,
 		"age": age,
 		"q_arm_experience": q_arm_experience,
@@ -152,7 +152,7 @@ def api_submit():
 		"assigned_group": group,
 	}
 	with CSV_PATH.open("a", newline="", encoding="utf-8") as f:
-		writer = csv,DictWriter(f, fieldnames=FIELDNAMES)
+		writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
 		writer.writerow(row)
 
 	return jsonify({"status": "ok", "assigned_group": group})
