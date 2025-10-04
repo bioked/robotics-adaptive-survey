@@ -1,8 +1,7 @@
 # Robotics Adaptive Survey
 
-Flask-based HRI adaptive survey for participant intake, with branching based on participants' experience and comfort working with robots.
-Built with Python and Flask, it stores responses to CSV and includes researcher-facing and API endpoints (WIP).
- 
+This flask-based survey tool is designed to collect information from participants through an intake form for an HRI survey. Built with Python and Flask, it uses simple branching based on the respondent's experience and comfort level operating a robot. Responses are stored as CSV. It also includes researcher-facing routes and API endpoints (WIP).
+
 ## Run
 
 ```bash
