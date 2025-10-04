@@ -59,6 +59,11 @@ def assign_group(exp_level: str, comfort: str) -> str:
 		return "advanced"
 	return "standard"
         
+@app.route("/")
+def home():
+	"""Landing page with nav to every survey and researcher route"""
+	return render_template("home.html")
+
 @app.route("/survey", methods=["GET", "POST"])
 def survey():
 	init_csv()
@@ -95,10 +100,6 @@ def survey():
 		return redirect(url_for("filled", group=group))
                         
 	return render_template("survey.html")
-                        
-@app.route("/")
-def home():
-	return "Welcome. Visit /survey to get started."
 
 @app.route("/filled")
 def filled():

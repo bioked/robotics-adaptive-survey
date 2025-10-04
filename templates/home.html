@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Robotics Adaptive Survey</title>
+		<style>
+			body {
+				font-family: system-ui, -apple-system, sans-serif;
+				max-width: 700px;
+				margin: 3rem auto;
+				padding: 0 1.5rem;
+				line-height: 1.6;
+				text-align: left;
+			}
+			h1 {
+				text-align: center;
+				margin-bottom: 1rem;
+			}
+			p {
+				text-align: center;
+			}
+			nav {
+				margin-top: 2rem;
+				text-align: left;
+			nav p { 
+				margin: 0.5rem 0;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Robotics Adaptive Survey</h1>
+		<p>A participant intake tool for robotics and HRI studies.</p>
+		<nav>
+			<p><a href="{{ url_for('survey') }}">Record New Response</a>
+			<p><a href="{{ url_for('responses') }}">View Results</a></p>
+			<p><a href="{{ url_for('responses_csv') }}">Download Results as CSV</a></p>
+			<p><a href="{{ url_for('api_responses') }}">JSON API</a></p>
+		<nav>
+	</body>
+</html>
+
