@@ -1,174 +1,60 @@
-<!doctype html>
-<html>
-	<head>
-		<meta charset="utf-8">
-		<title>Participant Questionnaire</title>
-		<style>
-			/* Body and font styles */
-			body {
-				font-family: "Inter", system-ui, -apple-system, sans-serif;
-				background-color: #f3f4f6;
-				margin: 0;
-			}
+{% extends "base.html" %}
+{% block title %}Participant Questionnaire{% endblock %}
+{% block header %}{% endblock %}
+{% block footer %}{% endblock %}
 
-			/* Main container to centre the form */
-			.main-container {
-				display: flex;
-				align-items: flex-start;
-				justify-content: center;
-				padding: 3rem 1rem;
-				min-height: 100vh;
-				box-sizing: border-box;
-			}
+{% block content %}
+	<div class="form-header">
+		<h2 class="form-title">Participant questionnaire</h2>
+		<p class="form-description">A study in communication strategies for human-robot collaboration</p>
+	</div>
 
-			/* Form wrapper */
-			.form-wrapper {
-				width: 100%;
-				max-width: 42rem;
-				border-radius: 0.5rem;
-				background-color: white;
-				padding: 2.5rem;
-				box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
-					0 4px 6px -4px rgba(0, 0, 0, 0.1);
-				box-sizing: border-box;
-			}
+	{% if error %}
+		<p class="error">{{ error }}</p>
+	{% endif %}
 
-			/* Header section for title and description */
-			.form-header { margin-bottom: 1.5rem; }
-			.form-title {
-				font-size: 1.75rem;
-				font-weight: 650;
- 				color: #1f2937;
-				margin: 0 0 .25rem 0;
-			}
-			.form-description {
-			margin: 0;
-			font-size: 0.95rem;
-			color: #4b5563;
-			line-height: 1.45;
-			}
-
-			/* Form field group container */
-			.form-group { margin-bottom: 1.25rem; }
-
-			/* Labels */
-			.form-label {
-				display: block;
-				margin-bottom: 0.45rem;
-				font-size: 0.95rem;
-				font-weight: 550;
-				color: #374151;
-			}
-
-			/* Styles for input, select */
-			.form-input, .form-select {
-				width: 100%;
-				border-radius: 0.375rem;
-				border: 1px solid #d1d5db;
-				padding: 0.6rem 0.7rem;
-				font-size: 0.95rem;
-				color: #111827;
-				box-sizing: border-box;
-				transition: border-color 0.2s, box-shadow 0.2s;
-			}
-			.form-input:focus, .form-select:focus {
-				border-color: #6366f1;
-				box-shadow: 0 0 0 1px #6366f1;
-				outline: none;
-			}
-
-			/* Submit button */
-			.submit-btn {
-				width: 100%;
-				border-radius: 0.375rem;
-				background-color: #4f46e5;
-				padding: 0.75rem 1.5rem;
-				font-weight: 600;
-				color: white;
-				border: none;
-				cursor: pointer;
-				transition: background-color 0.3s, box-shadow 0.3s;
-			}
-			.submit-btn:hover { background-color: #4338ca; }
-			.submit-btn:focus {
-				outline: none;
-				box-shadow: 0 0 0 3px rgba(99,102,241,0.5);
-			}
-
-			/* Error */
-			.error { color: #b91c1c; margin-bottom: 1rem; }
-
-			/* Footer */
-			.footer { margin-top: 1rem; }
-			.footer a { color: #2563eb; text-decoration: none; }
-			.footer a:hover { text-decoration: underline; }
-			}
-		</style>
-	</head>
-	<body>
-		<div class="main-container">
-			<div class="form-wrapper">
-
-				<div class="form-header">
-					<h2 class="form-title">Participant Questionnaire</h2>
-					<p class="form-description">A Study on Communication Strategies for Human-Robot Collaboration</p>
-				</div>
-
-				{% if error %}
-					<p class="error">{{ error }}</p>
-				{% endif %}
-
-				<!-- Keep action empty. It's posting back to /survey in Flask -->
-				<form method="POST" action="">
-
-					<div class="form-group">
-						<label for="name" class="form-label">Name</label>
-						<input class="form-input" type="text" name="name" id="name" required>
-					</div>
-
-					<div class="form-group">
-						<label for="age" class="form-label">Age</label>
-						<input class="form-input" type="text" name="age" id="age"
-							inputmode="numeric" pattern="\d+" required>
-					</div>
-
-					<div class="form-group">
-						<label for="q_arm_experience" class="form-label">Have you controlled a robotic arm before?</label>
-						<select class="form-select" name="q_arm_experience" id="q_arm_experience" required>
-							<option value="never">Never</option>
-							<option value="demo_only">Only in a demo or lab environment</option>
-							<option value="often">Yes, often</option>
-						</select>
-					</div>
-
-					<div class="form-group">
-						<label for="q_control" class="form-label">Preferred control method</label>
-						<select class="form-select" name="q_control" id="q_control" required>
-							<option value="joystick">Joystick</option>
-							<option value="gesture">Gestures</option>
-							<option value="voice">Voice commands</option>
-							<option value="other">Other</option>
-						</select>
-					</div>
-
-					<div class="form-group">
-						<label for="q_comfort" class="form-label">How comfortable are you around robots?</label>
-						<select class="form-select" name="q_comfort" id="q_comfort" required>
-							<option value="very_uncomfortable">Very uncomfortable</option>
-							<option value="neutral">Neutral</option>
-							<option value="comfortable">Comfortable</option>
-							<option value="very_comfortable">Very comfortable</option>
-						</select>
-					</div>
-
-					<button type="submit" class="submit-btn">Submit</button>
-				</form>
-
-				<div class="footer">
-					<a href="{{ url_for('home') }}">Home</a>
-				</div>
-
-			</div>
+	<!-- Keep action empty. It's posting back to /survey in Flask -->
+	<form method="POST" action="">
+		<div class="form-group">
+			<label for="name" class="form-label">Name</label>
+			<input class="form-input" type="text" name="name" id="name" required>
 		</div>
-	</body>
-</html>
+
+		<div class="form-group">
+			<label for="age" class="form-label">Age</label>
+			<input class="form-input" type="text" name="age" id="age"
+				inputmode="numeric" pattern="\d+" required>
+		</div>
+
+		<div class="form-group">
+			<label for="q_arm_experience" class="form-label">Have you controlled a robotic arm before?</label>
+			<select class="form-select" name="q_arm_experience" id="q_arm_experience" required>
+				<option value="never">Never</option>
+				<option value="demo_only">Only in a demo or lab environment</option>
+				<option value="often">Yes, often</option>
+			</select>
+		</div>
+
+		<div class="form-group">
+			<label for="q_control" class="form-label">Preferred control method</label>
+			<select class="form-select" name="q_control" id="q_control" required>
+				<option value="joystick">Joystick</option>
+				<option value="gesture">Gestures</option>
+				<option value="voice">Voice commands</option>
+				<option value="other">Other</option>
+			</select>
+		</div>
+
+		<div class="form-group">
+			<label for="q_comfort" class="form-label">How comfortable are you around robots?</label>
+			<select class="form-select" name="q_comfort" id="q_comfort" required>
+				<option value="very_uncomfortable">Very uncomfortable</option>
+				<option value="neutral">Neutral</option>
+				<option value="comfortable">Comfortable</option>
+				<option value="very_comfortable">Very comfortable</option>
+			</select>
+		</div>
+
+		<button type="submit" class="submit-btn">Submit</button>
+	</form>
+{% endblock %}
