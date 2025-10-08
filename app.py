@@ -61,7 +61,7 @@ def assign_group(exp_level: str, comfort: str) -> str:
         
 @app.route("/")
 def home():
-	"""Landing page with nav to every survey and researcher route"""
+	"""Landing page with nav to all survey and researcher routes"""
 	return render_template("home.html")
 
 @app.route("/survey", methods=["GET", "POST"])
@@ -109,10 +109,42 @@ def filled():
 @requires_auth
 def responses():
 	init_csv()
-	with CSV_PATH.open("r", newline="", encoding="utf-8") as f:
-		rows = list(csv.DictReader(f))
 
-	return render_template("responses.html", rows=rows, fieldnames=FIELDNAMES)
+	rows = []
+	with CSV_PATH.open("r", newline="", encoding="utf-8") as f:
+		reader = csv.DictReader(f)
+		for r in reader:
+			rows.append(r)
+
+	# Sorts table entries by timestamp (newest first)
+	def parse_ts(r):
+		ts = r.get("timestamp", "")
+		try:
+			dt = datetime.fromisoformat(ts)
+			if dt.tzinfo is None:
+				dt = dt.replace(tzinfo=timezone.utc)
+			return dt
+		except Exception:
+			return datetime.min.replace(tzinfo=timezone.utc)
+
+	rows.sort(key=parse_ts, reverse=True)
+
+	# Records totals for each assigned group
+	totals = {
+		"count": len(rows),
+		"by_group": {
+			"tutorial": sum(1 for r in rows if r.get("assigned_group") == "tutorial"),
+			"standard": sum(1 for r in rows if r.get("assigned_group") == "standard"),
+			"advanced": sum(1 for r in rows if r.get("assigned_group") == "advanced"),
+		},
+	}	
+
+	return render_template(
+		"responses.html",
+		rows=rows,
+		fieldnames=FIELDNAMES,
+		totals=totals,
+	)
 
 @app.route("/responses.csv")
 def responses_csv():

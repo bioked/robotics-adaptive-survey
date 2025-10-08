@@ -1,12 +1,15 @@
-<!doctype html>
-<html>
-	<head><meta charset="utf-8"><title>We've received your response</title></head>
-	<body>
-	<h1>Thank you for participating</h1>
+{% extends "base.html" %}
+{% block title %}We've received your response{% endblock %} 
+{% block header %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block content %}
+	<div class="form-header">
+		<h2 class="form-title">Thank you for participating</h2>
 	{% if group %}
-		<p><strong>Assigned group:</strong> {{ group }}</p>
+		<p class="form-description"><strong>Assigned group:</strong> {{ group }}</p>
 	{% endif %}
-		<p>If you have any questions about this study or wish to withdraw your consent, please contact so-and-so@email.com</p>
-		<p><a href="{{ url_for('survey') }}">Next</a></p>
-	</body>
-</html>
+	</div>
+	<p>If you have any questions about this study or wish to withdraw your consent, please contact so-and-so@email.com</p>
+	<p><a class="submit-btn" href="{{ url_for('survey') }}">Record another response</a></p>
+{% endblock %}
