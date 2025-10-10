@@ -1,6 +1,14 @@
 __pycache__/
 *.pyc
+*.pyo
 .DS_Store
 survey_responses.csv
 venv/
 .venv/
+*.sqlite
+local.db
+.env
+.env.*
+*.egg-info/
+dist/
+build/
