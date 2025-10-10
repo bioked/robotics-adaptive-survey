@@ -1,15 +1,33 @@
-from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, Response
 import csv
-from pathlib import Path
-from datetime import datetime, timezone
+import io
 import os
+
+from datetime import datetime, timezone
+from functools import wraps
+from pathlib import Path
+
+from flask import (
+	Flask, render_template, request, redirect, url_for, 
+	jsonify, send_file, Response
+)
+
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+# --- Columns and order for tables and CSV export ---
+FIELDNAMES = [
+	"timestamp",
+	"name",
+	"age",
+	"q_arm_experience",
+	"q_control",
+	"q_comfort",
+	"assigned_group",
+]
+
 # --- Basic auth ---
 USERNAME = "studyowner"
-PASSWORD = "password" # change value before deploying
+PASSWORD = "password" # change before deploying
 
 def check_auth(u, p):
 	return u == USERNAME and p == PASSWORD
@@ -34,14 +52,12 @@ def requires_auth(fn):
 
 # --- Database config ---
 db_url = os.getenv("DATABASE_URL", "sqlite:///./local.db")
-
 engine = create_engine(db_url, future=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, 
-	future=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
 
-# --- SQLAlchemy ---
-class Response(Base):
+# --- SQLAlchemy model ---
+class SurveyResponse(Base):
 	__tablename__ = "responses"
 	id = Column(Integer, primary_key=True)
 	timestamp = Column(DateTime(timezone=True), 
@@ -58,45 +74,25 @@ with engine.begin() as conn:
 
 app = Flask(__name__)
 
-with SessionLocal() as db:
-	rows = (
-		db.query(Response)
-		.order_by(Response.timestamp.desc())
-		.all()
-	)
-
-rows = [
-	{
-		"timestamp": r.timestamp.isoformat() if r.timestamp else "",
-		"name": r.name,
-		"age": r.age,
-		"q_arm_experience": r.q_arm_experience,
-		"q_control": r.q_control,
-		"q_comfort": r.q_comfort,
-		"assigned_group": r.assigned_group,
-	}
-	for r in rows
-	]
-                        
 def assign_group(exp_level: str, comfort: str) -> str:
-	"""
-	Basic adaptive branching:
-	- never used a robotic arm OR very_uncomfortable	-> tutorial
-	- demo_only AND neutral/comfortable			-> standard
-	- often AND comfortable/very_comfortable		-> advanced
-	- fallback						-> standard
-	"""
-	if exp_level == "never" or comfort == "very_uncomfortable":
-		return "tutorial"
-	if exp_level == "demo_only" and comfort in {"neutral", "comfortable", "very_comfortable"}:
-		return "standard"
-	if exp_level == "often" and comfort in {"comfortable", "very_comfortable"}:
-		return "advanced"
-	return "standard"
-        
+        """
+        Basic adaptive branching:
+        - never used a robotic arm OR very_uncomfortable        -> tutorial
+        - demo_only AND neutral/comfortable                     -> standard
+        - often AND comfortable/very_comfortable                -> advanced
+        - fallback                                              -> standard
+        """
+        if exp_level == "never" or comfort == "very_uncomfortable":
+                return "tutorial"
+        if exp_level == "demo_only" and comfort in {"neutral", "comfortable", "very_comfortable"}:
+                return "standard"
+        if exp_level == "often" and comfort in {"comfortable", "very_comfortable"}:
+                return "advanced"
+        return "standard"
+
 @app.route("/")
 def home():
-	"""Landing page with nav to all survey and researcher routes"""
+	"""Landing page with nav to all survey and researcher routes."""
 	return render_template("home.html")
 
 @app.route("/survey", methods=["GET", "POST"])
@@ -117,9 +113,9 @@ def survey():
 		# adaptive branching
 		group = assign_group(q_arm_experience, q_comfort)
 
-		# save to Postgres
+		# save to DB
 		with SessionLocal() as db:
-			db.add(Response(
+			db.add(SurveyResponse(
 				timestamp=datetime.now(timezone.utc),
 				name=name,
 				age=int(age),
@@ -130,7 +126,7 @@ def survey():
 			))
 			db.commit()
 
-		# show assigned group on /survey success page 
+		# show assigned group on success page 
 		return redirect(url_for("filled", group=group))
                                 
 	return render_template("survey.html")
@@ -144,10 +140,11 @@ def filled():
 def responses():
 	with SessionLocal() as db:
 		items = (
-			db.query(Response)
-			.order_by(Response.timestamp.desc())
+			db.query(SurveyResponse)
+			.order_by(SurveyResponse.timestamp.desc())
 			.all()
 		)
+
 	rows = [
 		{
 			"timestamp": r.timestamp.isoformat() if r.timestamp else "",
@@ -161,13 +158,6 @@ def responses():
 		for r in items
 	]
 
-	fieldnames = [
-		"timestamp", "name", "age", 
-		"q_arm_experience", "q_control", "q_comfort", 
-		"assigned_group",
-	]
-
-	# Records totals for each assigned group
 	totals = {
 		"count": len(rows),
 		"by_group": {
@@ -188,18 +178,41 @@ def responses():
 	)
 
 @app.route("/responses.csv")
+@requires_auth
 def responses_csv():
-        """Ability to download survey responses as CSV."""
-        init_csv()
-        # Download all responses as CSV
-        return send_file(CSV_PATH, mimetype="text/csv", as_attachment=True, download_name="survey_responses.csv")
+	"""Download responses (results) as CSV (authenticated)."""
+	with SessionLocal() as db:
+		data = (
+			db.query(SurveyResponse)
+			.order_by(SurveyResponse.timestamp.desc())
+			.all()
+		)
+	
+	output = io.StringIO()
+	writer = csv.writer(output)
+	writer.writerow(FIELDNAMES) # header row
+
+	for r in data:
+		writer.writerow([
+			r.timestamp.isoformat() if r.timestamp else "",
+			r.name,
+			r.age,
+			r.q_arm_experience,
+			r.q_control,
+			r.q_comfort, 
+			r.assigned_group
+		])
+
+	response = Response(output.getvalue(), mimetype="text/csv")
+	response.headers["Content-Disposition"] = "attachment; filename=results.csv"
+	return response
 
 @app.route("/api/responses")
 def api_responses():
 	with SessionLocal() as db:
 		data = (
-			db.query(Response)
-			.order_by(Response.timestamp.desc())
+			db.query(SurveyResponse)
+			.order_by(SurveyResponse.timestamp.desc())
 			.all()
 		)
 
@@ -229,12 +242,10 @@ def api_submit():
 	if not name or not age.isdigit():
 		return jsonify({"error": "Invalid input"}), 400
 
-	# adaptive branching
 	group = assign_group(q_arm_experience, q_comfort)
 
-	# save to Postgres
 	with SessionLocal() as db:
-		db.add(Response(
+		db.add(SurveyResponse(
 			timestamp=datetime.now(timezone.utc),
 			name=name,
 			age=int(age),
