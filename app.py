@@ -3,16 +3,19 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify, s
 import csv
 from pathlib import Path
 from datetime import datetime, timezone
+import os
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, text
+from sqlalchemy.orm import declarative_base, sessionmaker
 
-# --- Basic Auth ---
+# --- Basic auth ---
 USERNAME = "studyowner"
-PASSWORD = "password" # change this to something secure before deploying
+PASSWORD = "password" # change value before deploying
 
 def check_auth(u, p):
 	return u == USERNAME and p == PASSWORD
 
 def authenticate():
-	"""Send 401 so browser asks for login credentials."""
+	"""Send 401 so browser prompts for username and password."""
 	return Response(
 		"Authentication required",
 		401,
@@ -20,7 +23,7 @@ def authenticate():
 	)
 
 def requires_auth(fn):
-	"""Decorator that adds basic password protection to a route."""
+	"""Require username and password before accessing this route."""
 	@wraps(fn)
 	def wrapper(*args, **kwargs):
 		auth = request.authorization
@@ -28,21 +31,53 @@ def requires_auth(fn):
 			return authenticate()
 		return fn(*args, **kwargs)
 	return wrapper
-        
-app = Flask(__name__)
-                        
-CSV_PATH = Path("survey_responses.csv")
-FIELDNAMES = ["timestamp", "name", "age",
-		"q_arm_experience", "q_control", "q_comfort",
-		"assigned_group"]
-        
-def init_csv():
-	"""Create CSV incl. header if there isn't one already."""   
-	if not CSV_PATH.exists():
-		with CSV_PATH.open("w", newline="", encoding="utf-8") as f:   
-			writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
-			writer.writeheader()
 
+# --- Database config ---
+db_url = os.getenv("DATABASE_URL", "sqlite:///./local.db")
+
+engine = create_engine(db_url, future=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, 
+	future=True)
+Base = declarative_base()
+
+# --- SQLAlchemy ---
+class Response(Base):
+	__tablename__ = "responses"
+	id = Column(Integer, primary_key=True)
+	timestamp = Column(DateTime(timezone=True), 
+		server_default=text("CURRENT_TIMESTAMP"))
+	name = Column(String(255), nullable=False)
+	age = Column(Integer, nullable=False)
+	q_arm_experience = Column(String(50), nullable=False)
+	q_control = Column(String(50), nullable=False)
+	q_comfort = Column(String(50), nullable=False)
+	assigned_group = Column(String(50), nullable=False)
+
+with engine.begin() as conn:
+	Base.metadata.create_all(conn)
+
+app = Flask(__name__)
+
+with SessionLocal() as db:
+	rows = (
+		db.query(Response)
+		.order_by(Response.timestamp.desc())
+		.all()
+	)
+
+rows = [
+	{
+		"timestamp": r.timestamp.isoformat() if r.timestamp else "",
+		"name": r.name,
+		"age": r.age,
+		"q_arm_experience": r.q_arm_experience,
+		"q_control": r.q_control,
+		"q_comfort": r.q_comfort,
+		"assigned_group": r.assigned_group,
+	}
+	for r in rows
+	]
+                        
 def assign_group(exp_level: str, comfort: str) -> str:
 	"""
 	Basic adaptive branching:
@@ -66,7 +101,6 @@ def home():
 
 @app.route("/survey", methods=["GET", "POST"])
 def survey():
-	init_csv()
 	if request.method == "POST":
 		name = (request.form.get("name") or "").strip()
 		age = (request.form.get("age") or "").strip()
@@ -82,23 +116,23 @@ def survey():
 
 		# adaptive branching
 		group = assign_group(q_arm_experience, q_comfort)
-                
-		row = {
-			"timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-			"name": name,
-			"age": age,
-			"q_arm_experience": q_arm_experience,
-			"q_control": q_control,
-			"q_comfort": q_comfort,
-			"assigned_group": group,
-		}
-		with CSV_PATH.open("a", newline="", encoding="utf-8") as f:
-			writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
-			writer.writerow(row)
-                
-		# show assigned group on the form filled page
+
+		# save to Postgres
+		with SessionLocal() as db:
+			db.add(Response(
+				timestamp=datetime.now(timezone.utc),
+				name=name,
+				age=int(age),
+				q_arm_experience=q_arm_experience,
+				q_control=q_control,
+				q_comfort=q_comfort,
+				assigned_group=group,
+			))
+			db.commit()
+
+		# show assigned group on /survey success page 
 		return redirect(url_for("filled", group=group))
-                        
+                                
 	return render_template("survey.html")
 
 @app.route("/filled")
@@ -108,34 +142,41 @@ def filled():
 @app.route("/responses")
 @requires_auth
 def responses():
-	init_csv()
+	with SessionLocal() as db:
+		items = (
+			db.query(Response)
+			.order_by(Response.timestamp.desc())
+			.all()
+		)
+	rows = [
+		{
+			"timestamp": r.timestamp.isoformat() if r.timestamp else "",
+			"name": r.name,
+			"age": r.age,
+			"q_arm_experience": r.q_arm_experience,
+			"q_control": r.q_control,
+			"q_comfort": r.q_comfort,
+			"assigned_group": r.assigned_group,
+		}
+		for r in items
+	]
 
-	rows = []
-	with CSV_PATH.open("r", newline="", encoding="utf-8") as f:
-		reader = csv.DictReader(f)
-		for r in reader:
-			rows.append(r)
-
-	# Sorts table entries by timestamp (newest first)
-	def parse_ts(r):
-		ts = r.get("timestamp", "")
-		try:
-			dt = datetime.fromisoformat(ts)
-			if dt.tzinfo is None:
-				dt = dt.replace(tzinfo=timezone.utc)
-			return dt
-		except Exception:
-			return datetime.min.replace(tzinfo=timezone.utc)
-
-	rows.sort(key=parse_ts, reverse=True)
+	fieldnames = [
+		"timestamp", "name", "age", 
+		"q_arm_experience", "q_control", "q_comfort", 
+		"assigned_group",
+	]
 
 	# Records totals for each assigned group
 	totals = {
 		"count": len(rows),
 		"by_group": {
-			"tutorial": sum(1 for r in rows if r.get("assigned_group") == "tutorial"),
-			"standard": sum(1 for r in rows if r.get("assigned_group") == "standard"),
-			"advanced": sum(1 for r in rows if r.get("assigned_group") == "advanced"),
+			"tutorial": sum(1 for r in rows if r.get("assigned_group") 
+				 == "tutorial"),
+			"standard": sum(1 for r in rows if r.get("assigned_group") 
+				== "standard"),
+			"advanced": sum(1 for r in rows if r.get("assigned_group") 
+				== "advanced"),
 		},
 	}	
 
@@ -155,15 +196,30 @@ def responses_csv():
 
 @app.route("/api/responses")
 def api_responses():
-	init_csv()
-	with CSV_PATH.open("r", newline="", encoding="utf-8") as f:
-		rows = list(csv.DictReader(f))
-	return jsonify(rows)
+	with SessionLocal() as db:
+		data = (
+			db.query(Response)
+			.order_by(Response.timestamp.desc())
+			.all()
+		)
+
+	out = [
+		{
+			"timestamp": r.timestamp.isoformat() if r.timestamp else "",
+			"name": r.name,
+			"age": r.age,
+			"q_arm_experience": r.q_arm_experience,
+			"q_control": r.q_control,
+			"q_comfort": r.q_comfort,
+			"assigned_group": r.assigned_group,
+		}
+		for r in data
+	]
+	return jsonify(out)
 
 @app.route("/api/submit", methods=["POST"])
 def api_submit():
-	init_csv()
-	data = request.get_json(force=True) or {}
+	data = request.get_json(silent=True) or {}
 	name = (data.get("name") or "").strip()
 	age = (data.get("age") or "").strip()
 	q_arm_experience = data.get("q_arm_experience") or ""
@@ -173,20 +229,21 @@ def api_submit():
 	if not name or not age.isdigit():
 		return jsonify({"error": "Invalid input"}), 400
 
+	# adaptive branching
 	group = assign_group(q_arm_experience, q_comfort)
 
-	row = {
-		"timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-		"name": name,
-		"age": age,
-		"q_arm_experience": q_arm_experience,
-		"q_control": q_control,
-		"q_comfort": q_comfort,
-		"assigned_group": group,
-	}
-	with CSV_PATH.open("a", newline="", encoding="utf-8") as f:
-		writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
-		writer.writerow(row)
+	# save to Postgres
+	with SessionLocal() as db:
+		db.add(Response(
+			timestamp=datetime.now(timezone.utc),
+			name=name,
+			age=int(age),
+			q_arm_experience=q_arm_experience,
+			q_control=q_control,
+			q_comfort=q_comfort,
+			assigned_group=group
+		))
+		db.commit()
 
 	return jsonify({"status": "ok", "assigned_group": group})
 
