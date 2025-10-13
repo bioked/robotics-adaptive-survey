@@ -14,7 +14,7 @@ from flask import (
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# --- Columns and order for tables and CSV export ---
+# --- Columns and ordering in tables and CSV export ---
 FIELDNAMES = [
 	"timestamp",
 	"name",
@@ -24,6 +24,16 @@ FIELDNAMES = [
 	"q_comfort",
 	"assigned_group",
 ]
+
+# --- Filter results by date range --- 
+def _parse_date(s: str):
+	try:
+		dt = datetime.fromisoformat(s)
+		if dt.tzinfo is None:
+			dt = dt.replace(tzinfo=timezone.utc)
+		return dt
+	except Exception:
+		return None
 
 # --- Basic auth ---
 USERNAME = "studyowner"
@@ -97,6 +107,7 @@ def home():
 
 @app.route("/survey", methods=["GET", "POST"])
 def survey():
+	"""User-facing questionnaire with responses saved to db."""
 	if request.method == "POST":
 		name = (request.form.get("name") or "").strip()
 		age = (request.form.get("age") or "").strip()
@@ -133,11 +144,13 @@ def survey():
 
 @app.route("/filled")
 def filled():
+	"""Success page after /survey is submitted."""
 	return render_template("filled.html", group=request.args.get("group", ""))
                         
 @app.route("/responses")
 @requires_auth
 def responses():
+	"""Researcher-facing table view of results."""
 	with SessionLocal() as db:
 		items = (
 			db.query(SurveyResponse)
@@ -180,7 +193,7 @@ def responses():
 @app.route("/responses.csv")
 @requires_auth
 def responses_csv():
-	"""Download responses (results) as CSV (authenticated)."""
+	"""Researcher ability to download responses (results) as CSV."""
 	with SessionLocal() as db:
 		data = (
 			db.query(SurveyResponse)
@@ -209,12 +222,19 @@ def responses_csv():
 
 @app.route("/api/responses")
 def api_responses():
+	"""Endpoint for /responses and ability to filter to a particular date range.""" 
+	start_str = request.args.get("start")
+	end_str = request.args.get("end")
+	start_dt = _parse_date(start_str) if start_str else None
+	end_dt = _parse_date(end_str) if end_str else None
+
 	with SessionLocal() as db:
-		data = (
-			db.query(SurveyResponse)
-			.order_by(SurveyResponse.timestamp.desc())
-			.all()
-		)
+		q = db.query(SurveyResponse)
+		if start_dt:
+			q = q.filter(SurveyResponse.timestamp >= start_dt)
+		if end_dt:
+			q = q.filter(SurveyResponse.timestamp <= end_dt)
+		data = q.order_by(SurveyResponse.timestamp.desc()).all()
 
 	out = [
 		{
@@ -257,6 +277,19 @@ def api_submit():
 		db.commit()
 
 	return jsonify({"status": "ok", "assigned_group": group})
+
+@app.route("/api/stats")
+@requires_auth
+def api_stats():
+	with SessionLocal() as db:
+		items = db.query(SurveyResponse.assigned_group).all()
+
+	total = len(items)
+	by_group = {"tutorial": 0, "standard": 0, "advanced": 0}
+	for (g, ) in items:
+		by_group[g] = by_group.get(g, 0) + 1
+	
+	return jsonify({"total": total, "by_group": by_group})
 
 if __name__ == "__main__":
 	app.run(debug=True)
